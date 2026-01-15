@@ -12,19 +12,21 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { transcript, guest, episodeType } = req.body;
+  try {
+    const { transcript, guest, episodeType } = req.body || {};
 
-  if (!transcript) {
-    return res.status(400).json({ error: 'Transcript is required' });
-  }
+    if (!transcript) {
+      return res.status(400).json({ error: 'Transcript is required' });
+    }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  
-  if (!apiKey) {
-    return res.status(500).json({ error: 'API key not configured' });
-  }
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    
+    if (!apiKey) {
+      console.error('ANTHROPIC_API_KEY not found in environment');
+      return res.status(500).json({ error: 'API key not configured' });
+    }
 
-  const systemPrompt = `You are a YouTube title expert for "Tokenized" - a podcast about stablecoins, tokenization, and institutional crypto adoption hosted by Simon Taylor and Cuy Sheffield.
+    const systemPrompt = `You are a YouTube title expert for "Tokenized" - a podcast about stablecoins, tokenization, and institutional crypto adoption hosted by Simon Taylor and Cuy Sheffield.
 
 ## Your Top Performing Titles (learn from these):
 - "Stablecoin Chains - The Future of Payments? Ft. Chainlink CEO Sergey Nazarov" (14K views)
@@ -59,7 +61,7 @@ export default async function handler(req, res) {
 
 Generate exactly 8 titles. Return ONLY a JSON array of objects with "title" and "hook_type" fields. hook_type should be one of: "number", "company", "threat", "question", "guest", "bold_statement", "series"`;
 
-  const userPrompt = `Generate 8 YouTube titles for this Tokenized episode.
+    const userPrompt = `Generate 8 YouTube titles for this Tokenized episode.
 
 Episode Type: ${episodeType || 'Interview'}
 ${guest ? `Guest: ${guest}` : 'No guest specified'}
@@ -69,7 +71,8 @@ ${transcript.slice(0, 4000)}
 
 Return ONLY valid JSON array like: [{"title": "...", "hook_type": "..."}]`;
 
-  try {
+    console.log('Calling Anthropic API...');
+    
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -88,12 +91,14 @@ Return ONLY valid JSON array like: [{"title": "...", "hook_type": "..."}]`;
     });
 
     if (!response.ok) {
-      const error = await response.text();
-      console.error('Anthropic API error:', error);
-      return res.status(500).json({ error: 'Failed to generate titles' });
+      const errorText = await response.text();
+      console.error('Anthropic API error:', response.status, errorText);
+      return res.status(500).json({ error: 'Failed to generate titles', details: errorText });
     }
 
     const data = await response.json();
+    console.log('Anthropic response received');
+    
     const content = data.content[0].text;
     
     // Parse the JSON from Claude's response
@@ -104,17 +109,17 @@ Return ONLY valid JSON array like: [{"title": "...", "hook_type": "..."}]`;
       if (jsonMatch) {
         titles = JSON.parse(jsonMatch[0]);
       } else {
-        throw new Error('No JSON array found');
+        throw new Error('No JSON array found in response');
       }
     } catch (parseError) {
-      console.error('Parse error:', parseError, 'Content:', content);
-      return res.status(500).json({ error: 'Failed to parse titles' });
+      console.error('Parse error:', parseError.message, 'Content:', content);
+      return res.status(500).json({ error: 'Failed to parse titles', content: content });
     }
 
     return res.status(200).json({ titles });
 
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Unhandled error:', error.message, error.stack);
     return res.status(500).json({ error: error.message });
   }
 }
