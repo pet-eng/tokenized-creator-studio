@@ -1,0 +1,8 @@
+{
+  "name": "tokenized-creator-studio",
+  "version": "2.0.0",
+  "description": "AI-powered title and thumbnail generator for Tokenized Podcast",
+  "scripts": {
+    "start": "npx serve ."
+  }
+}
