@@ -4,5 +4,8 @@
   "description": "AI-powered title and thumbnail generator for Tokenized Podcast",
   "scripts": {
     "start": "npx serve ."
-  }
+  },
+    "dependencies": {
+          "puppeteer": "^22.0.0"
+    }
 }
