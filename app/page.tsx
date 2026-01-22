@@ -68,71 +68,69 @@ export default function Home() {
       if (!ctx) throw new Error('Canvas not supported');
       canvas.width = 1280;
       canvas.height = 720;
+      // Bright blue gradient background (Tokenized style)
       const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-      gradient.addColorStop(0, '#0a1628');
-      gradient.addColorStop(0.5, '#1e3a5f');
-      gradient.addColorStop(1, '#0a1628');
+      gradient.addColorStop(0, '#1a4a7a');
+      gradient.addColorStop(0.5, '#2d6eb5');
+      gradient.addColorStop(1, '#1a4a7a');
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      const radialGlow = ctx.createRadialGradient(canvas.width * 0.3, canvas.height * 0.3, 0, canvas.width * 0.3, canvas.height * 0.3, 400);
-      radialGlow.addColorStop(0, 'rgba(0, 200, 255, 0.15)');
+      // Radial light effect
+      const radialGlow = ctx.createRadialGradient(canvas.width * 0.7, canvas.height * 0.4, 0, canvas.width * 0.7, canvas.height * 0.4, 600);
+      radialGlow.addColorStop(0, 'rgba(100, 180, 255, 0.3)');
       radialGlow.addColorStop(1, 'transparent');
       ctx.fillStyle = radialGlow;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
+      // Guest photo on LEFT side
       if (guestPhoto) {
         await new Promise<void>((resolve, reject) => {
           const img = new Image();
           img.crossOrigin = 'anonymous';
           img.onload = () => {
-            const imgSize = 450;
-            const x = canvas.width - imgSize - 60;
-            const y = canvas.height - imgSize;
-            ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-            ctx.shadowBlur = 40;
-            ctx.shadowOffsetX = 10;
-            ctx.shadowOffsetY = 10;
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(x + imgSize/2, y + imgSize/2, imgSize/2, 0, Math.PI * 2);
-            ctx.closePath();
-            ctx.clip();
-            ctx.drawImage(img, x, y, imgSize, imgSize);
-            ctx.restore();
-            ctx.shadowColor = 'transparent';
-            ctx.shadowBlur = 0;
-            ctx.shadowOffsetX = 0;
-            ctx.shadowOffsetY = 0;
+            const imgHeight = 650;
+            const imgWidth = (img.width / img.height) * imgHeight;
+            const x = -50;
+            const y = canvas.height - imgHeight + 50;
+            ctx.drawImage(img, x, y, imgWidth, imgHeight);
             resolve();
           };
           img.onerror = reject;
           img.src = guestPhoto;
         });
       }
-      ctx.font = 'bold 28px Arial, sans-serif';
-      ctx.fillStyle = '#00c8ff';
-      ctx.textAlign = 'left';
-      ctx.fillText('TOKENIZED', 60, 60);
-      ctx.font = 'bold 72px Arial, sans-serif';
-      ctx.fillStyle = '#ffffff';
-      const maxWidth = guestPhoto ? 700 : 1100;
+      // Split headline into stacked lines
       const words = headline.toUpperCase().split(' ');
       const lines: string[] = [];
-      let currentLine = '';
-      for (const word of words) {
-        const testLine = currentLine ? `${currentLine} ${word}` : word;
-        const metrics = ctx.measureText(testLine);
-        if (metrics.width > maxWidth && currentLine) { lines.push(currentLine); currentLine = word; }
-        else { currentLine = testLine; }
+      if (words.length <= 2) { lines.push(...words); }
+      else if (words.length === 3) { lines.push(words[0], words[1], words[2]); }
+      else if (words.length === 4) { lines.push(words[0], words[1], words[2], words[3]); }
+      else {
+        const wordsPerLine = Math.ceil(words.length / 3);
+        for (let i = 0; i < words.length; i += wordsPerLine) { lines.push(words.slice(i, i + wordsPerLine).join(' ')); }
       }
-      if (currentLine) lines.push(currentLine);
-      const lineHeight = 85;
-      const startY = 180;
-      lines.forEach((line, i) => { ctx.shadowColor = 'rgba(0, 0, 0, 0.5)'; ctx.shadowBlur = 10; ctx.fillText(line, 60, startY + i * lineHeight); });
-      ctx.shadowBlur = 0;
-      if (subtext) { ctx.font = '36px Arial, sans-serif'; ctx.fillStyle = '#8ba3c7'; ctx.fillText(subtext, 60, startY + lines.length * lineHeight + 30); }
-      if (guestName && guestPhoto) { ctx.font = 'bold 32px Arial, sans-serif'; ctx.fillStyle = '#00c8ff'; ctx.textAlign = 'right'; ctx.fillText(guestName, canvas.width - 60, canvas.height - 40); }
-      ctx.fillStyle = '#00c8ff';
-      ctx.fillRect(60, startY + lines.length * lineHeight + (subtext ? 70 : 20), 100, 4);
+      // Text on RIGHT side
+      const textX = guestPhoto ? 520 : 100;
+      const startY = 150;
+      const lineHeight = 130;
+      ctx.textAlign = 'left';
+      lines.forEach((line, i) => {
+        ctx.font = 'bold 95px Arial Black, Arial, sans-serif';
+        const metrics = ctx.measureText(line);
+        const textWidth = metrics.width;
+        const textHeight = 95;
+        const boxPadding = 15;
+        const boxX = textX - boxPadding;
+        const boxY = startY + (i * lineHeight) - textHeight + 10;
+        const boxWidth = textWidth + (boxPadding * 2);
+        const boxHeight = textHeight + boxPadding;
+        // Black background box
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
+        // Cyan text
+        ctx.fillStyle = '#00d4ff';
+        ctx.font = 'bold 95px Arial Black, Arial, sans-serif';
+        ctx.fillText(line, textX, startY + (i * lineHeight));
+      });
       setThumbnailImage(canvas.toDataURL('image/png'));
       showToast('Thumbnail generated!');
     } catch (error) {
@@ -227,8 +225,7 @@ export default function Home() {
           <div className="panel">
             <div className="panel-header"><div className="panel-title">Thumbnail Generator</div><span className="ai-badge">🎨 Canvas</span></div>
             <div className="panel-body">
-              <div className="input-group"><label>Headline Text</label><input type="text" placeholder="e.g., BANKS ARE PANICKING" value={headline} onChange={(e) => setHeadline(e.target.value)} /></div>
-              <div className="input-group"><label>Subtext (optional)</label><input type="text" placeholder="e.g., Stablecoins are coming" value={subtext} onChange={(e) => setSubtext(e.target.value)} /></div>
+              <div className="input-group"><label>Headline Text</label><input type="text" placeholder="e.g., TOKENIZED STOCKS ARE HERE" value={headline} onChange={(e) => setHeadline(e.target.value)} /></div>
               <div className="input-group">
                 <label>Guest Photo (optional)</label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -237,7 +234,6 @@ export default function Home() {
                   {guestPhoto && (<div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><img src={guestPhoto} alt="Guest preview" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--accent)' }} /><button className="btn btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem' }} onClick={() => setGuestPhoto(null)}>✕</button></div>)}
                 </div>
               </div>
-              {guestPhoto && (<div className="input-group"><label>Guest Name</label><input type="text" placeholder="e.g., Sergey Nazarov" value={guestName} onChange={(e) => setGuestName(e.target.value)} /></div>)}
               <div className="btn-group">
                 <button className="btn" onClick={handleGenerateThumbnail} disabled={isGeneratingThumbnail}>{isGeneratingThumbnail ? (<><span className="spinner" style={{ width: 16, height: 16 }} />Generating...</>) : (<><span>🎨</span> Generate Thumbnail</>)}</button>
                 <button className="btn btn-secondary" onClick={() => { setHeadline(''); setSubtext(''); setGuestPhoto(null); setGuestName(''); setThumbnailImage(null); }}>Clear</button>
