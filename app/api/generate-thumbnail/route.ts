@@ -1,69 +1,108 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { buildThumbnailPrompt } from '@/lib/prompts';
 
 export async function POST(request: NextRequest) {
   try {
-    const { headline, hasGuest, guestDescription } = await request.json();
+    const { headline, subtext, company, hasGuest } = await request.json();
 
     if (!headline || headline.trim().length === 0) {
-      return NextResponse.json({ error: 'Headline is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Headline is required' },
+        { status: 400 }
+      );
     }
 
+    const prompt = buildThumbnailPrompt(headline, subtext || '', company, hasGuest);
+
+    // Use Imagen 3 via REST API directly
     const apiKey = process.env.GEMINI_API_KEY;
+
     if (!apiKey) {
-      return NextResponse.json({ error: 'Gemini API key not configured' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Gemini API key not configured' },
+        { status: 500 }
+      );
     }
 
-    const prompt = `Create a professional YouTube thumbnail for a crypto/fintech podcast called "Tokenized".
-
-Style requirements:
-- Bright blue gradient background (like a professional tech/finance podcast)
-- Bold, impactful text with the headline: "${headline.toUpperCase()}"
-- The text should have BLACK rectangular boxes behind each line of text
-- Text color should be bright cyan/turquoise (#00d4ff)
-- Text should be stacked vertically, one or two words per line
-- Clean, modern, professional look
-${hasGuest ? `- Include a professional-looking person (${guestDescription || 'business professional'}) on the left side of the image` : ''}
-- 16:9 aspect ratio suitable for YouTube thumbnails
-- High contrast, eye-catching design
-- No watermarks or logos other than the text
-
-The overall style should look like a premium finance/crypto podcast thumbnail with bold typography.`;
-
-    // Try Gemini 2.0 Flash with image generation
+    // Call Imagen 3 API directly
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: `Generate an image: ${prompt}` }] }],
-          generationConfig: { responseModalities: ['image', 'text'] }
+          instances: [
+            {
+              prompt: prompt,
+            },
+          ],
+          parameters: {
+            sampleCount: 1,
+            aspectRatio: '16:9',
+            outputOptions: {
+              mimeType: 'image/png',
+            },
+          },
         }),
       }
     );
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Gemini API error:', errorText);
-      return NextResponse.json({ error: 'Image generation failed' }, { status: 500 });
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Imagen API error:', errorData);
+
+      // Check for specific error types
+      if (response.status === 400) {
+        return NextResponse.json(
+          { error: 'Invalid request to image generation API', details: JSON.stringify(errorData) },
+          { status: 400 }
+        );
+      }
+
+      return NextResponse.json(
+        { error: 'Image generation API error', details: JSON.stringify(errorData) },
+        { status: response.status }
+      );
     }
 
     const data = await response.json();
-    const parts = data.candidates?.[0]?.content?.parts || [];
-    const imagePart = parts.find((p: { inlineData?: { mimeType: string; data: string } }) => 
-      p.inlineData?.mimeType?.startsWith('image/')
-    );
 
-    if (imagePart?.inlineData) {
-      const base64Image = `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
-      return NextResponse.json({ image: base64Image });
+    // Extract image from response
+    if (data.predictions && data.predictions[0]?.bytesBase64Encoded) {
+      const imageData = data.predictions[0].bytesBase64Encoded;
+      const mimeType = data.predictions[0].mimeType || 'image/png';
+
+      return NextResponse.json({
+        image: `data:${mimeType};base64,${imageData}`,
+        success: true,
+      });
     }
 
-    return NextResponse.json({ error: 'No image generated' }, { status: 500 });
-  } catch (error) {
-    console.error('Error:', error);
+    // Try alternative response structure
+    if (data.images && data.images[0]) {
+      return NextResponse.json({
+        image: `data:image/png;base64,${data.images[0]}`,
+        success: true,
+      });
+    }
+
+    console.error('Unexpected response structure:', JSON.stringify(data));
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to generate thumbnail' },
+      { error: 'No image in response', details: 'Unexpected API response structure' },
+      { status: 500 }
+    );
+  } catch (error) {
+    console.error('Error generating thumbnail:', error);
+
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+    return NextResponse.json(
+      {
+        error: 'Failed to generate thumbnail',
+        details: errorMessage,
+      },
       { status: 500 }
     );
   }

@@ -23,8 +23,8 @@ export default function Home() {
   // Thumbnail generation state
   const [headline, setHeadline] = useState('');
   const [subtext, setSubtext] = useState('');
-  const [guestPhoto, setGuestPhoto] = useState<string | null>(null);
-  const [guestName, setGuestName] = useState('');
+  const [company, setCompany] = useState('');
+  const [hasGuest, setHasGuest] = useState(false);
   const [thumbnailImage, setThumbnailImage] = useState<string | null>(null);
   const [isGeneratingThumbnail, setIsGeneratingThumbnail] = useState(false);
 
@@ -68,18 +68,6 @@ export default function Home() {
     }
   };
 
-  const handleGuestPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setGuestPhoto(event.target?.result as string);
-      showToast('Guest photo loaded!');
-    };
-    reader.readAsDataURL(file);
-  };
-
   const handleGenerateThumbnail = async () => {
     if (!headline.trim()) {
       showToast('Please enter a headline', 'error');
@@ -93,11 +81,7 @@ export default function Home() {
       const response = await fetch('/api/generate-thumbnail', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          headline,
-          hasGuest: !!guestName,
-          guestDescription: guestName || undefined,
-        }),
+        body: JSON.stringify({ headline, subtext, company, hasGuest }),
       });
 
       const data = await response.json();
@@ -106,12 +90,8 @@ export default function Home() {
         throw new Error(data.error || 'Failed to generate thumbnail');
       }
 
-      if (data.image) {
-        setThumbnailImage(data.image);
-        showToast('Thumbnail generated with Gemini!');
-      } else {
-        throw new Error('No image returned');
-      }
+      setThumbnailImage(data.image);
+      showToast('Thumbnail generated!');
     } catch (error) {
       console.error('Error:', error);
       showToast(error instanceof Error ? error.message : 'Failed to generate thumbnail', 'error');
@@ -333,30 +313,49 @@ export default function Home() {
           <div className="panel">
             <div className="panel-header">
               <div className="panel-title">Thumbnail Generator</div>
-              <span className="ai-badge">✨ Gemini</span>
+              <span className="ai-badge">🎨 Gemini</span>
             </div>
             <div className="panel-body">
               <div className="input-group">
                 <label>Headline Text</label>
                 <input
                   type="text"
-                  placeholder="e.g., TOKENIZED STOCKS ARE HERE"
+                  placeholder="e.g., BANKS ARE PANICKING"
                   value={headline}
                   onChange={(e) => setHeadline(e.target.value)}
                 />
               </div>
 
               <div className="input-group">
-                <label>Guest/Person Description (optional)</label>
+                <label>Subtext (optional)</label>
                 <input
                   type="text"
-                  placeholder="e.g., professional man in suit, tech CEO, business woman"
-                  value={guestName}
-                  onChange={(e) => setGuestName(e.target.value)}
+                  placeholder="e.g., Stablecoins are coming"
+                  value={subtext}
+                  onChange={(e) => setSubtext(e.target.value)}
                 />
-                <small style={{ color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>
-                  Describe the person to appear in the thumbnail (AI will generate them)
-                </small>
+              </div>
+
+              <div className="input-group">
+                <label>Company/Logo to Feature (optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g., Circle, Stripe, BlackRock"
+                  value={company}
+                  onChange={(e) => setCompany(e.target.value)}
+                />
+              </div>
+
+              <div className="input-group">
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <input
+                    type="checkbox"
+                    checked={hasGuest}
+                    onChange={(e) => setHasGuest(e.target.checked)}
+                    style={{ width: 'auto' }}
+                  />
+                  Include space for guest photo
+                </label>
               </div>
 
               <div className="btn-group">
@@ -375,18 +374,6 @@ export default function Home() {
                       <span>🎨</span> Generate Thumbnail
                     </>
                   )}
-                </button>
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => {
-                    setHeadline('');
-                    setSubtext('');
-                    setGuestPhoto(null);
-                    setGuestName('');
-                    setThumbnailImage(null);
-                  }}
-                >
-                  Clear
                 </button>
               </div>
             </div>
