@@ -1,41 +1,158 @@
-// Top performing title examples from Tokenized Podcast
-export const TOP_PERFORMING_TITLES = [
-  { title: "Stablecoin Chains - The Future of Payments? Ft. Chainlink CEO Sergey Nazarov", views: "14K", pattern: "Topic + Question + Guest" },
-  { title: "The $300 Trillion Dollar Whoopsie", views: "5.9K", pattern: "Shocking Money Amount" },
-  { title: "Every Bank Should Tokenize Deposits", views: "3.5K", pattern: "Bold Statement" },
-  { title: "BlackRock Want to Tokenize Everything", views: "3.5K", pattern: "Big Company + Bold Action" },
-  { title: "Should Banks Fear Stripe Stablecoin Accounts?", views: "2K+", pattern: "Question + Threat" },
-  { title: "13,000 Banks Get Stablecoin Access", views: "2K+", pattern: "Specific Number + Trend" },
-  { title: "DTCC Readies $100T of Stocks", views: "2K+", pattern: "Institution + Money Amount" },
-];
+import { EpisodeData, analyzePerformanceData } from './dashboard-data';
+import { GoogleTrendsData } from './google-trends';
+import { YouTubeCompetitorData } from './youtube-competitors';
+import { RSSFeedData } from './rss-feeds';
+import { ChannelVelocityData } from './channel-velocity';
 
-export const TITLE_GENERATION_PROMPT = `You are a YouTube title expert for "Tokenized" - a podcast about stablecoins, tokenization, and the future of payments. Your job is to generate compelling, click-worthy titles.
+// ---------------------------------------------------------------------------
+// Enrichment data — all fields nullable (sources fail independently)
+// ---------------------------------------------------------------------------
+
+export interface EnrichmentData {
+  googleTrends: GoogleTrendsData | null;
+  youtubeCompetitors: YouTubeCompetitorData | null;
+  rssHeadlines: RSSFeedData | null;
+  channelVelocity: ChannelVelocityData | null;
+}
+
+// ---------------------------------------------------------------------------
+// Title generation prompt — built dynamically from real performance data
+// ---------------------------------------------------------------------------
+
+function buildPerformanceSection(episodes: EpisodeData[]): string {
+  const { top20, bottom5, topYouTube, topX } = analyzePerformanceData(episodes);
+
+  const topLines = top20.map((ep, i) => {
+    const patternStr = ep.patterns.join(', ');
+    return `${i + 1}. "${ep.title}" — ${ep.total_reach.toLocaleString()} total reach (Podcast: ${ep.simplecast.toLocaleString()}, YouTube: ${ep.youtube.toLocaleString()}, X: ${ep.x.toLocaleString()}) [${patternStr}]`;
+  }).join('\n');
+
+  const bottomLines = bottom5.map(ep =>
+    `- "${ep.title}" — only ${ep.total_reach.toLocaleString()} total reach`
+  ).join('\n');
+
+  const ytLines = topYouTube.map((ep, i) =>
+    `${i + 1}. "${ep.title}" — ${ep.views.toLocaleString()} views`
+  ).join('\n');
+
+  const xLines = topX.map((ep, i) =>
+    `${i + 1}. "${ep.title}" — ${ep.views.toLocaleString()} views`
+  ).join('\n');
+
+  return `## TOP 20 TITLES BY TOTAL REACH (real data from all platforms)
+${topLines}
+
+## WHAT TO AVOID (lowest performers)
+These titles underperformed. Study them so you DON'T repeat their patterns:
+${bottomLines}
+
+## TOP TITLES BY PLATFORM
+Titles that go viral on X are often different from what works on YouTube.
+
+**Best on YouTube (long-form viewers):**
+${ytLines}
+
+**Best on X / Twitter (short attention, scroll-stopping):**
+${xLines}`;
+}
+
+// ---------------------------------------------------------------------------
+// Enrichment section builders
+// ---------------------------------------------------------------------------
+
+function buildGoogleTrendsSection(data: GoogleTrendsData): string {
+  const topQueries = data.queries.filter(q => q.type === 'top');
+  const risingQueries = data.queries.filter(q => q.type === 'rising');
+
+  let section = `\n\n## SUPPLEMENTARY: What People Are Searching Right Now (Google Trends, ${data.fetchedAt.split('T')[0]})
+Use these as secondary inspiration to align titles with current search demand — but only if they fit the episode content.\n`;
+
+  if (topQueries.length > 0) {
+    section += `\n**Top Related Searches:**\n`;
+    section += topQueries.map(q => `- "${q.query}" (interest: ${q.value})`).join('\n');
+  }
+  if (risingQueries.length > 0) {
+    section += `\n\n**Rising/Breakout Searches:**\n`;
+    section += risingQueries.map(q => `- "${q.query}" (+${q.value}%)`).join('\n');
+  }
+
+  return section;
+}
+
+function buildCompetitorSection(data: YouTubeCompetitorData): string {
+  let section = `\n\n## SUPPLEMENTARY: Competitor Titles Performing Now (YouTube, last 30 days)
+For awareness only — see what framing is working in the broader space, but prioritize YOUR proven title patterns above.\n\n`;
+
+  section += data.videos.map((v, i) =>
+    `${i + 1}. "${v.title}" — ${v.viewCount.toLocaleString()} views (${v.channelTitle})`
+  ).join('\n');
+
+  return section;
+}
+
+function buildRSSSection(data: RSSFeedData): string {
+  let section = `\n\n## SUPPLEMENTARY: Today's Crypto/Fintech Headlines
+Reference these ONLY if they directly align with the episode content — a timely news hook can boost a title, but don't force it.\n\n`;
+
+  section += data.headlines.map(h =>
+    `- "${h.title}" (${h.source})`
+  ).join('\n');
+
+  return section;
+}
+
+function buildVelocitySection(data: ChannelVelocityData): string {
+  let section = `\n\n## YOUR CHANNEL'S RECENT TITLE VELOCITY (views/day on YouTube)
+Average: ${data.averageVelocity} views/day across recent episodes.\n`;
+
+  if (data.hotEpisodes.length > 0) {
+    section += `\n**Gaining traction fastest (model these):**\n`;
+    section += data.hotEpisodes.map(ep =>
+      `- "${ep.title}" — ${ep.viewsPerDay} views/day (${ep.youtubeViews.toLocaleString()} total, ${ep.daysLive}d live)`
+    ).join('\n');
+  }
+
+  if (data.coldEpisodes.length > 0) {
+    section += `\n\n**Underperforming (avoid these patterns):**\n`;
+    section += data.coldEpisodes.map(ep =>
+      `- "${ep.title}" — ${ep.viewsPerDay} views/day (${ep.youtubeViews.toLocaleString()} total, ${ep.daysLive}d live)`
+    ).join('\n');
+  }
+
+  return section;
+}
+
+// ---------------------------------------------------------------------------
+// Prompt constants
+// ---------------------------------------------------------------------------
+
+const BASE_PROMPT = `You are a YouTube title expert for "Tokenized" - a podcast about stablecoins, tokenization, and the future of payments. Your job is to generate compelling, click-worthy titles.
 
 ## CONTEXT
-Tokenized is hosted by Simon Taylor (Head of Market Dev at Tempo, author of Fintech Brainfood). The audience is finance professionals, crypto enthusiasts, and fintech leaders interested in:
+Tokenized is hosted by Simon Taylor (Head of Market Dev at Tempo, author of Fintech Brainfood) and co-hosted by Cuy Sheffield (former Head of Crypto at Visa). The audience is finance professionals, crypto enthusiasts, and fintech leaders interested in:
 - Stablecoins (USDC, USDT, Tether, Circle, etc.)
 - Tokenization of real-world assets (RWAs)
 - Payments infrastructure
 - DeFi meeting TradFi
 - Regulatory developments (GENIUS Act, MiCA, etc.)
 
-## TOP PERFORMING TITLE PATTERNS (ranked by views)
-1. **Guest Authority + Bold Topic** (14K views): "Stablecoin Chains - The Future of Payments? Ft. Chainlink CEO Sergey Nazarov"
-2. **Shocking Money Amount** (5.9K views): "The $300 Trillion Dollar Whoopsie"
-3. **Bold Declarative Statement** (3.5K views): "Every Bank Should Tokenize Deposits"
-4. **Big Company + Action** (3.5K views): "BlackRock Want to Tokenize Everything"
-5. **Threat/Fear Question** (2K+ views): "Should Banks Fear Stripe Stablecoin Accounts?"
-6. **Specific Number + Trend** (2K+ views): "13,000 Banks Get Stablecoin Access"
+## PERFORMANCE DATA (PRIMARY — weight this most heavily)
+Below is real performance data from the Tokenized podcast. These are actual view/download numbers across Podcast (Simplecast), YouTube, and X (Twitter). This is your PRIMARY reference — the title patterns that have proven to work with THIS specific audience matter most. External data (trends, competitors, headlines) is supplementary context only.
 
-## RULES
+`;
+
+const RULES = `
+## RULES (derived from what the data shows works)
 1. Keep titles under 60 characters when possible (YouTube truncates longer titles)
-2. Use specific numbers - "13,000" not "thousands"
-3. Use power words: "Every", "All", "Must", "Secret", "War", "Fear"
-4. Questions work well when they imply threat or major change
-5. Guest names in title ONLY if they're recognizable (CEOs, founders)
-6. Always include company names when relevant (Stripe, Circle, BlackRock, etc.)
-7. Avoid generic words like "interesting", "great", "amazing"
-8. Create FOMO - make viewers feel they'll miss out
+2. Use specific numbers — "$300 Trillion" and "13,000 Banks" massively outperform vague titles
+3. Use power words: "Every", "All", "Must", "Secret", "War", "Fear", "Threat"
+4. Questions that imply threat or major change perform well ("Should Banks Fear…?")
+5. Guest names ONLY if recognizable (CEOs, founders of major companies)
+6. Company names drive clicks — always include them when relevant (Stripe, Circle, BlackRock, Visa, etc.)
+7. Avoid generic words: "interesting", "great", "amazing", "discusses", "explores"
+8. Bold, declarative statements outperform neutral descriptions
+9. Titles that create FOMO or imply viewers will miss critical industry shifts perform best
+10. On X, shorter punchy titles with big claims perform best. On YouTube, specificity and authority win.
 
 ## SERIES FORMATS
 If the episode is part of a series, use these exact formats:
@@ -47,7 +164,7 @@ If the episode is part of a series, use these exact formats:
 Generate 8-10 titles. For each title, provide:
 1. The title text
 2. Category tags (from: guest, company, number, question, hook, threat, series, future, news)
-3. Brief reasoning (1 sentence explaining why this will perform)
+3. Brief reasoning (1 sentence explaining why this will perform, referencing a similar top-performing title from the data above when possible)
 
 Format as JSON array:
 [
@@ -57,6 +174,62 @@ Format as JSON array:
     "reasoning": "Why this works"
   }
 ]`;
+
+// ---------------------------------------------------------------------------
+// Main prompt builder
+// ---------------------------------------------------------------------------
+
+export function buildTitlePrompt(
+  transcript: string,
+  guest: string,
+  episodeType: string,
+  episodes: EpisodeData[],
+  enrichment?: EnrichmentData,
+): string {
+  const performanceSection = buildPerformanceSection(episodes);
+
+  // Build enrichment sections (only if data available)
+  let enrichmentSections = '';
+  if (enrichment?.googleTrends) {
+    enrichmentSections += buildGoogleTrendsSection(enrichment.googleTrends);
+  }
+  if (enrichment?.youtubeCompetitors) {
+    enrichmentSections += buildCompetitorSection(enrichment.youtubeCompetitors);
+  }
+  if (enrichment?.rssHeadlines) {
+    enrichmentSections += buildRSSSection(enrichment.rssHeadlines);
+  }
+  if (enrichment?.channelVelocity) {
+    enrichmentSections += buildVelocitySection(enrichment.channelVelocity);
+  }
+
+  let contextualInstructions = '';
+
+  if (episodeType === 'stablecoin-stories') {
+    contextualInstructions = `\n\nThis is a STABLECOIN STORIES episode - a series featuring company journeys and founder stories. At least 3 titles should use the "Stablecoin Stories:" prefix format.`;
+  } else if (episodeType === 'stablecoin-stats') {
+    contextualInstructions = `\n\nThis is a STABLECOIN STATS episode - a data-driven series. At least 3 titles should use the "Stablecoin Stats:" prefix format and reference specific metrics.`;
+  } else if (episodeType === 'agentic-commerce') {
+    contextualInstructions = `\n\nThis is an AGENTIC COMMERCE episode - a series about AI agents and payments. At least 3 titles should use the "Agentic Commerce:" prefix format.`;
+  } else if (episodeType === 'predictions') {
+    contextualInstructions = `\n\nThis is a PREDICTIONS episode. Include at least 2 titles with year predictions format (e.g., "2026 Predictions: ...")`;
+  }
+
+  const guestInstruction = guest
+    ? `\n\nGUEST: ${guest}\nInclude the guest name in at least 2 titles, especially if they have a notable title (CEO, Founder, etc.)`
+    : '\n\nNo guest for this episode - focus on topic-driven titles.';
+
+  return `${BASE_PROMPT}${performanceSection}${enrichmentSections}${RULES}${contextualInstructions}${guestInstruction}
+
+## EPISODE CONTENT
+${transcript}
+
+Generate titles now:`;
+}
+
+// ---------------------------------------------------------------------------
+// Thumbnail prompt — unchanged
+// ---------------------------------------------------------------------------
 
 export const THUMBNAIL_GENERATION_PROMPT = `Create a YouTube thumbnail for the Tokenized podcast with these specifications:
 
@@ -85,31 +258,6 @@ VISUAL ELEMENTS:
 - Occasional accent glow effects (cyan)
 - Professional, not flashy or "crypto bro" aesthetic
 - Think Bloomberg/Financial Times meets modern tech`;
-
-export function buildTitlePrompt(transcript: string, guest: string, episodeType: string): string {
-  let contextualInstructions = '';
-
-  if (episodeType === 'stablecoin-stories') {
-    contextualInstructions = `\n\nThis is a STABLECOIN STORIES episode - a series featuring company journeys and founder stories. At least 3 titles should use the "Stablecoin Stories:" prefix format.`;
-  } else if (episodeType === 'stablecoin-stats') {
-    contextualInstructions = `\n\nThis is a STABLECOIN STATS episode - a data-driven series. At least 3 titles should use the "Stablecoin Stats:" prefix format and reference specific metrics.`;
-  } else if (episodeType === 'agentic-commerce') {
-    contextualInstructions = `\n\nThis is an AGENTIC COMMERCE episode - a series about AI agents and payments. At least 3 titles should use the "Agentic Commerce:" prefix format.`;
-  } else if (episodeType === 'predictions') {
-    contextualInstructions = `\n\nThis is a PREDICTIONS episode. Include at least 2 titles with year predictions format (e.g., "2025 Predictions: ...")`;
-  }
-
-  const guestInstruction = guest
-    ? `\n\nGUEST: ${guest}\nInclude the guest name in at least 2 titles, especially if they have a notable title (CEO, Founder, etc.)`
-    : '\n\nNo guest for this episode - focus on topic-driven titles.';
-
-  return `${TITLE_GENERATION_PROMPT}${contextualInstructions}${guestInstruction}
-
-## EPISODE CONTENT
-${transcript}
-
-Generate titles now:`;
-}
 
 export function buildThumbnailPrompt(headline: string, subtext: string, company?: string, hasGuest?: boolean): string {
   let specific = THUMBNAIL_GENERATION_PROMPT;

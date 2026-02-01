@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { buildTitlePrompt } from '@/lib/prompts';
+import { getPerformanceData } from '@/lib/dashboard-data';
+import { getGoogleTrends } from '@/lib/google-trends';
+import { getYouTubeCompetitors } from '@/lib/youtube-competitors';
+import { getRSSHeadlines } from '@/lib/rss-feeds';
+import { deriveChannelVelocity } from '@/lib/channel-velocity';
+import type { EnrichmentData } from '@/lib/prompts';
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -17,7 +23,52 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const prompt = buildTitlePrompt(transcript, guest || '', episodeType || 'interview');
+    // Fetch all data sources in parallel — each fails independently
+    const [episodesResult, trendsResult, competitorsResult, rssResult] =
+      await Promise.allSettled([
+        getPerformanceData(),
+        getGoogleTrends(),
+        getYouTubeCompetitors(),
+        getRSSHeadlines(),
+      ]);
+
+    const episodes =
+      episodesResult.status === 'fulfilled' ? episodesResult.value : [];
+    const googleTrends =
+      trendsResult.status === 'fulfilled' ? trendsResult.value : null;
+    const youtubeCompetitors =
+      competitorsResult.status === 'fulfilled' ? competitorsResult.value : null;
+    const rssHeadlines =
+      rssResult.status === 'fulfilled' ? rssResult.value : null;
+
+    // Derive velocity metrics from the episode data (no extra fetch)
+    const channelVelocity =
+      episodes.length > 0 ? deriveChannelVelocity(episodes) : null;
+
+    const enrichment: EnrichmentData = {
+      googleTrends,
+      youtubeCompetitors,
+      rssHeadlines,
+      channelVelocity,
+    };
+
+    // Log which sources succeeded
+    const sources = [
+      `episodes: ${episodes.length}`,
+      `trends: ${googleTrends ? googleTrends.queries.length + ' queries' : 'unavailable'}`,
+      `competitors: ${youtubeCompetitors ? youtubeCompetitors.videos.length + ' videos' : 'unavailable'}`,
+      `rss: ${rssHeadlines ? rssHeadlines.headlines.length + ' headlines' : 'unavailable'}`,
+      `velocity: ${channelVelocity ? channelVelocity.recentEpisodes.length + ' episodes' : 'unavailable'}`,
+    ];
+    console.log(`[TitleGen] Data sources: ${sources.join(', ')}`);
+
+    const prompt = buildTitlePrompt(
+      transcript,
+      guest || '',
+      episodeType || 'interview',
+      episodes,
+      enrichment,
+    );
 
     const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
@@ -36,7 +87,6 @@ export async function POST(request: NextRequest) {
       : '';
 
     // Parse the JSON from the response
-    // Look for JSON array in the response
     const jsonMatch = responseText.match(/\[[\s\S]*\]/);
 
     if (!jsonMatch) {
