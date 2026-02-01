@@ -41,6 +41,59 @@ export default function Home() {
   // Toast state
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
+  // Known hosts to exclude from guest detection
+  const HOSTS = ['simon taylor', 'sy taylor', 'cuy sheffield'];
+
+  const extractGuestFromTranscript = (text: string): string => {
+    // Pattern 1: Speaker labels like "Jess Houlgrave  0:32" or "Jess Houlgrave 0:32"
+    const speakerPattern = /^([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)+)\s+\d+:\d+/gm;
+    const speakers = new Set<string>();
+    let match;
+    while ((match = speakerPattern.exec(text)) !== null) {
+      const name = match[1].trim();
+      if (!HOSTS.some(h => name.toLowerCase().includes(h))) {
+        speakers.add(name);
+      }
+    }
+
+    if (speakers.size === 0) return '';
+
+    const guestName = [...speakers][0];
+
+    // Look for title/role near the guest name: "CEO of X", "Founder of X", "President of X", etc.
+    const rolePatterns = [
+      new RegExp(`${guestName.split(' ')[0]}[^.]*?(?:CEO|CTO|COO|CFO|CPO|CMO|President|Founder|Co-Founder|Head|Director|VP|Managing Director|Partner|General Partner)\\s+(?:of|at|,)?\\s+([A-Z][\\w\\s&.-]+?)(?:[,.]|\\s+and\\s|\\s+who|\\s+from|$)`, 'i'),
+      new RegExp(`(?:CEO|CTO|COO|CFO|CPO|CMO|President|Founder|Co-Founder|Head|Director|VP|Managing Director|Partner|General Partner)\\s+(?:of|at|,)?\\s+([A-Z][\\w\\s&.-]+?)(?:[,.]|\\s+${guestName.split(' ')[0]}|$)`, 'i'),
+      new RegExp(`(?:guest[,.]?|joined by|welcome)\\s+[^.]*?${guestName.split(' ')[0]}[^.]*?(?:CEO|CTO|Founder|Co-Founder|President|Head|Director)\\s+(?:of|at)\\s+([A-Z][\\w\\s&.-]+?)(?:[,.]|$)`, 'i'),
+    ];
+
+    for (const pattern of rolePatterns) {
+      const roleMatch = text.match(pattern);
+      if (roleMatch?.[1]) {
+        const company = roleMatch[1].trim().replace(/\s+/g, ' ');
+        // Find the role itself
+        const roleKeyword = text.match(new RegExp(`(CEO|CTO|COO|CFO|CPO|CMO|President|Founder|Co-Founder|Head|Director|VP|Managing Director|Partner|General Partner)\\s+(?:of|at)\\s+${company.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i'));
+        if (roleKeyword) {
+          return `${guestName}, ${roleKeyword[1]} of ${company}`;
+        }
+        return `${guestName}, ${company}`;
+      }
+    }
+
+    return guestName;
+  };
+
+  const handleTranscriptChange = (text: string) => {
+    setTranscript(text);
+    // Only auto-fill guest if the field is empty
+    if (!guest.trim()) {
+      const detectedGuest = extractGuestFromTranscript(text);
+      if (detectedGuest) {
+        setGuest(detectedGuest);
+      }
+    }
+  };
+
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
@@ -187,7 +240,7 @@ export default function Home() {
           .trim();
       }
 
-      setTranscript(text);
+      handleTranscriptChange(text);
       showToast(`Loaded ${file.name}`);
     };
     reader.readAsText(file);
@@ -234,7 +287,7 @@ export default function Home() {
                   className="transcript-input"
                   placeholder="Paste the episode transcript, show notes, or a summary of the key topics discussed..."
                   value={transcript}
-                  onChange={(e) => setTranscript(e.target.value)}
+                  onChange={(e) => handleTranscriptChange(e.target.value)}
                 />
                 <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
                   <input
