@@ -13,11 +13,7 @@ interface TitleIteration {
   angle: string;
 }
 
-type TabType = 'titles' | 'thumbnails';
-
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<TabType>('titles');
-
   // Title generation state
   const [transcript, setTranscript] = useState('');
   const [guest, setGuest] = useState('');
@@ -29,14 +25,6 @@ export default function Home() {
   const [selectedTitleIndex, setSelectedTitleIndex] = useState<number | null>(null);
   const [iterations, setIterations] = useState<TitleIteration[]>([]);
   const [isIterating, setIsIterating] = useState(false);
-
-  // Thumbnail generation state
-  const [headline, setHeadline] = useState('');
-  const [subtext, setSubtext] = useState('');
-  const [company, setCompany] = useState('');
-  const [hasGuest, setHasGuest] = useState(false);
-  const [thumbnailImage, setThumbnailImage] = useState<string | null>(null);
-  const [isGeneratingThumbnail, setIsGeneratingThumbnail] = useState(false);
 
   // Toast state
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -172,53 +160,9 @@ export default function Home() {
     }
   };
 
-  const handleGenerateThumbnail = async () => {
-    if (!headline.trim()) {
-      showToast('Please enter a headline', 'error');
-      return;
-    }
-
-    setIsGeneratingThumbnail(true);
-    setThumbnailImage(null);
-
-    try {
-      const response = await fetch('/api/generate-thumbnail', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ headline, subtext, company, hasGuest }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to generate thumbnail');
-      }
-
-      setThumbnailImage(data.image);
-      showToast('Thumbnail generated!');
-    } catch (error) {
-      console.error('Error:', error);
-      showToast(error instanceof Error ? error.message : 'Failed to generate thumbnail', 'error');
-    } finally {
-      setIsGeneratingThumbnail(false);
-    }
-  };
-
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     showToast('Copied to clipboard!');
-  };
-
-  const downloadThumbnail = () => {
-    if (!thumbnailImage) return;
-
-    const link = document.createElement('a');
-    link.href = thumbnailImage;
-    link.download = `tokenized-thumbnail-${Date.now()}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showToast('Thumbnail downloaded!');
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -256,25 +200,9 @@ export default function Home() {
             <span>Tokenized Podcast</span>
           </div>
         </div>
-        <div className="tabs">
-          <button
-            className={`tab ${activeTab === 'titles' ? 'active' : ''}`}
-            onClick={() => setActiveTab('titles')}
-          >
-            Titles
-          </button>
-          <button
-            className={`tab ${activeTab === 'thumbnails' ? 'active' : ''}`}
-            onClick={() => setActiveTab('thumbnails')}
-          >
-            Thumbnails
-          </button>
-        </div>
       </header>
 
-      {/* TITLES SECTION */}
-      <section className={`section ${activeTab === 'titles' ? 'active' : ''}`}>
-        <div className="main-grid">
+      <div className="main-grid">
           <div className="panel">
             <div className="panel-header">
               <div className="panel-title">Episode Input</div>
@@ -445,118 +373,7 @@ export default function Home() {
               )}
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* THUMBNAILS SECTION */}
-      <section className={`section ${activeTab === 'thumbnails' ? 'active' : ''}`}>
-        <div className="main-grid">
-          <div className="panel">
-            <div className="panel-header">
-              <div className="panel-title">Thumbnail Generator</div>
-              <span className="ai-badge">🎨 Gemini</span>
-            </div>
-            <div className="panel-body">
-              <div className="input-group">
-                <label>Headline Text</label>
-                <input
-                  type="text"
-                  placeholder="e.g., BANKS ARE PANICKING"
-                  value={headline}
-                  onChange={(e) => setHeadline(e.target.value)}
-                />
-              </div>
-
-              <div className="input-group">
-                <label>Subtext (optional)</label>
-                <input
-                  type="text"
-                  placeholder="e.g., Stablecoins are coming"
-                  value={subtext}
-                  onChange={(e) => setSubtext(e.target.value)}
-                />
-              </div>
-
-              <div className="input-group">
-                <label>Company/Logo to Feature (optional)</label>
-                <input
-                  type="text"
-                  placeholder="e.g., Circle, Stripe, BlackRock"
-                  value={company}
-                  onChange={(e) => setCompany(e.target.value)}
-                />
-              </div>
-
-              <div className="input-group">
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <input
-                    type="checkbox"
-                    checked={hasGuest}
-                    onChange={(e) => setHasGuest(e.target.checked)}
-                    style={{ width: 'auto' }}
-                  />
-                  Include space for guest photo
-                </label>
-              </div>
-
-              <div className="btn-group">
-                <button
-                  className="btn"
-                  onClick={handleGenerateThumbnail}
-                  disabled={isGeneratingThumbnail}
-                >
-                  {isGeneratingThumbnail ? (
-                    <>
-                      <span className="spinner" style={{ width: 16, height: 16 }} />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <span>🎨</span> Generate Thumbnail
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="panel">
-            <div className="panel-header">
-              <div className="panel-title">Generated Thumbnail</div>
-            </div>
-            <div className="panel-body">
-              {isGeneratingThumbnail ? (
-                <div className="loading">
-                  <div className="spinner" />
-                  <div className="loading-text">Gemini is creating your thumbnail...</div>
-                </div>
-              ) : thumbnailImage ? (
-                <div className="thumbnail-result">
-                  <div className="thumbnail-preview">
-                    <img src={thumbnailImage} alt="Generated thumbnail" />
-                  </div>
-                  <div className="thumbnail-actions">
-                    <button className="btn" onClick={downloadThumbnail}>
-                      ⬇️ Download
-                    </button>
-                    <button
-                      className="btn btn-secondary"
-                      onClick={handleGenerateThumbnail}
-                    >
-                      🔄 Regenerate
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="results-empty">
-                  <div className="results-empty-icon">🎨</div>
-                  <p>Enter a headline and click Generate to create a thumbnail</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
+      </div>
 
       {/* Toast notification */}
       {toast && (

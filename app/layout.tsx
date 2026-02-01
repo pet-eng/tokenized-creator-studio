@@ -3,7 +3,7 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: 'Tokenized Creator Studio',
-  description: 'AI-powered title and thumbnail generator for Tokenized Podcast',
+  description: 'AI-powered title generator for Tokenized Podcast',
 }
 
 export default function RootLayout({

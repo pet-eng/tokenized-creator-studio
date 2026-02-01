@@ -228,38 +228,6 @@ Generate titles now:`;
 }
 
 // ---------------------------------------------------------------------------
-// Thumbnail prompt — unchanged
-// ---------------------------------------------------------------------------
-
-export const THUMBNAIL_GENERATION_PROMPT = `Create a YouTube thumbnail for the Tokenized podcast with these specifications:
-
-BRAND STYLE:
-- Dark blue gradient background (#0a1628 to #1e3a5f)
-- "TOKENIZED" logo/text in top right corner (white text)
-- Clean, professional fintech aesthetic
-- High contrast text for readability
-
-LAYOUT:
-- 16:9 aspect ratio (1280x720 or 1920x1080)
-- Main headline in bold white text, centered or left-aligned
-- If featuring a company: include their logo prominently
-- If featuring a guest: space for their photo on right side
-- Sponsor bar at bottom (optional): "SPONSORED BY [Visa logo] | PRESENTED BY [BVNK logo]"
-- Date badge in top left corner (format: "DD MMM")
-
-TEXT STYLE:
-- Headlines: Bold, uppercase, white
-- Subtitles: Smaller, cyan (#00c8ff)
-- Maximum 4-6 words for main headline
-- Text should be readable at small sizes (mobile thumbnails)
-
-VISUAL ELEMENTS:
-- Subtle gradient overlay
-- Occasional accent glow effects (cyan)
-- Professional, not flashy or "crypto bro" aesthetic
-- Think Bloomberg/Financial Times meets modern tech`;
-
-// ---------------------------------------------------------------------------
 // Title iteration prompt — generates variations of a chosen direction
 // ---------------------------------------------------------------------------
 
@@ -306,27 +274,4 @@ Return exactly 5 variations as a JSON array:
 ]
 
 Generate 5 variations now:`;
-}
-
-export function buildThumbnailPrompt(headline: string, subtext: string, company?: string, hasGuest?: boolean): string {
-  let specific = THUMBNAIL_GENERATION_PROMPT;
-
-  specific += `\n\nSPECIFIC REQUIREMENTS FOR THIS THUMBNAIL:`;
-  specific += `\n- Main headline: "${headline}"`;
-
-  if (subtext) {
-    specific += `\n- Subtext: "${subtext}"`;
-  }
-
-  if (company) {
-    specific += `\n- Feature the ${company} logo prominently`;
-  }
-
-  if (hasGuest) {
-    specific += `\n- Leave space on the right side for a guest photo cutout`;
-  }
-
-  specific += `\n\nCreate a professional, eye-catching thumbnail that matches the Tokenized brand.`;
-
-  return specific;
 }

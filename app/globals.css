@@ -77,38 +77,6 @@ header {
   letter-spacing: 0.1em;
 }
 
-.tabs {
-  display: flex;
-  gap: 0.5rem;
-  background: var(--bg-card);
-  padding: 0.5rem;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-}
-
-.tab {
-  padding: 0.75rem 1.5rem;
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-  font-family: inherit;
-  font-size: 0.9rem;
-  font-weight: 600;
-  cursor: pointer;
-  border-radius: 8px;
-  transition: all 0.2s;
-}
-
-.tab:hover {
-  color: var(--text);
-  background: var(--bg-card-alt);
-}
-
-.tab.active {
-  background: var(--accent);
-  color: var(--bg-dark);
-}
-
 .main-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -473,42 +441,6 @@ input::placeholder {
   font-style: italic;
 }
 
-/* Thumbnail Section */
-.thumbnail-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1.5rem;
-}
-
-.thumbnail-result {
-  background: var(--bg-dark);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.thumbnail-preview {
-  aspect-ratio: 16/9;
-  background: linear-gradient(135deg, #0a1628 0%, #1e3a5f 50%, #0a1628 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  overflow: hidden;
-}
-
-.thumbnail-preview img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.thumbnail-actions {
-  padding: 1rem;
-  display: flex;
-  gap: 0.75rem;
-}
-
 /* Loading State */
 .loading {
   display: flex;
@@ -577,15 +509,6 @@ input::placeholder {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-}
-
-/* Section visibility */
-.section {
-  display: none;
-}
-
-.section.active {
-  display: block;
 }
 
 /* File upload styling */
