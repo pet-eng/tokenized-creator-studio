@@ -259,6 +259,55 @@ VISUAL ELEMENTS:
 - Professional, not flashy or "crypto bro" aesthetic
 - Think Bloomberg/Financial Times meets modern tech`;
 
+// ---------------------------------------------------------------------------
+// Title iteration prompt — generates variations of a chosen direction
+// ---------------------------------------------------------------------------
+
+export function buildIterationPrompt(
+  selectedTitle: string,
+  transcript: string,
+  guest: string,
+  episodes: EpisodeData[],
+): string {
+  const { top20 } = analyzePerformanceData(episodes);
+
+  const topLines = top20.slice(0, 10).map((ep, i) =>
+    `${i + 1}. "${ep.title}" — ${ep.total_reach.toLocaleString()} total reach [${ep.patterns.join(', ')}]`
+  ).join('\n');
+
+  return `You are a YouTube title expert for "Tokenized" - a podcast about stablecoins, tokenization, and the future of payments.
+
+The user has chosen a title direction they like. Your job is to generate 5 refined variations of this title — keeping the same core angle/hook but exploring different framings, word choices, and structures.
+
+## SELECTED TITLE DIRECTION
+"${selectedTitle}"
+
+## TOP PERFORMING TITLES FOR REFERENCE
+${topLines}
+
+## RULES FOR ITERATIONS
+1. Keep the same core topic/angle as the selected title
+2. Vary the structure: try questions, bold statements, number-driven, threat-based
+3. Keep titles under 60 characters when possible
+4. Make each variation meaningfully different — not just word swaps
+5. At least one variation should be shorter/punchier (for X/Twitter)
+6. At least one should include a specific number or stat if the transcript has one${guest ? `\n7. The guest is: ${guest} — include their name in 1-2 variations if they have a notable title` : ''}
+
+## EPISODE CONTENT (for context)
+${transcript.slice(0, 3000)}
+
+## OUTPUT FORMAT
+Return exactly 5 variations as a JSON array:
+[
+  {
+    "text": "Title variation",
+    "angle": "1 sentence explaining what's different about this framing"
+  }
+]
+
+Generate 5 variations now:`;
+}
+
 export function buildThumbnailPrompt(headline: string, subtext: string, company?: string, hasGuest?: boolean): string {
   let specific = THUMBNAIL_GENERATION_PROMPT;
 

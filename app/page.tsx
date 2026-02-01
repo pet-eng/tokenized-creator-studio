@@ -8,6 +8,11 @@ interface GeneratedTitle {
   reasoning: string;
 }
 
+interface TitleIteration {
+  text: string;
+  angle: string;
+}
+
 type TabType = 'titles' | 'thumbnails';
 
 export default function Home() {
@@ -19,6 +24,11 @@ export default function Home() {
   const [episodeType, setEpisodeType] = useState('interview');
   const [titles, setTitles] = useState<GeneratedTitle[]>([]);
   const [isGeneratingTitles, setIsGeneratingTitles] = useState(false);
+
+  // Iteration state
+  const [selectedTitleIndex, setSelectedTitleIndex] = useState<number | null>(null);
+  const [iterations, setIterations] = useState<TitleIteration[]>([]);
+  const [isIterating, setIsIterating] = useState(false);
 
   // Thumbnail generation state
   const [headline, setHeadline] = useState('');
@@ -44,6 +54,8 @@ export default function Home() {
 
     setIsGeneratingTitles(true);
     setTitles([]);
+    setSelectedTitleIndex(null);
+    setIterations([]);
 
     try {
       const response = await fetch('/api/generate-titles', {
@@ -65,6 +77,45 @@ export default function Home() {
       showToast(error instanceof Error ? error.message : 'Failed to generate titles', 'error');
     } finally {
       setIsGeneratingTitles(false);
+    }
+  };
+
+  const handleIterateTitle = async (index: number) => {
+    // If clicking the same title, collapse
+    if (selectedTitleIndex === index) {
+      setSelectedTitleIndex(null);
+      setIterations([]);
+      return;
+    }
+
+    setSelectedTitleIndex(index);
+    setIterations([]);
+    setIsIterating(true);
+
+    try {
+      const response = await fetch('/api/iterate-title', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          selectedTitle: titles[index].text,
+          transcript,
+          guest,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to iterate title');
+      }
+
+      setIterations(data.iterations);
+    } catch (error) {
+      console.error('Error:', error);
+      showToast(error instanceof Error ? error.message : 'Failed to iterate title', 'error');
+      setSelectedTitleIndex(null);
+    } finally {
+      setIsIterating(false);
     }
   };
 
@@ -248,6 +299,8 @@ export default function Home() {
                     setTranscript('');
                     setGuest('');
                     setTitles([]);
+                    setSelectedTitleIndex(null);
+                    setIterations([]);
                   }}
                 >
                   Clear
@@ -278,27 +331,62 @@ export default function Home() {
                 </div>
               ) : (
                 titles.map((title, i) => (
-                  <div key={i} className="title-result" onClick={() => copyToClipboard(title.text)}>
-                    <div className="title-text">{title.text}</div>
-                    <div className="title-meta">
-                      {title.tags.map((tag) => (
-                        <span key={tag} className={`title-tag ${tag}`}>
-                          {tag}
-                        </span>
-                      ))}
+                  <div key={i}>
+                    <div
+                      className={`title-result ${selectedTitleIndex === i ? 'selected' : ''}`}
+                      onClick={() => handleIterateTitle(i)}
+                    >
+                      <div className="title-text">{title.text}</div>
+                      <div className="title-meta">
+                        {title.tags.map((tag) => (
+                          <span key={tag} className={`title-tag ${tag}`}>
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                      <div className="title-reasoning">{title.reasoning}</div>
+                      <div className="title-actions">
+                        <button
+                          className="title-action-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            copyToClipboard(title.text);
+                          }}
+                          title="Copy to clipboard"
+                        >
+                          📋
+                        </button>
+                      </div>
+                      {selectedTitleIndex !== i && (
+                        <div className="iterate-hint">Click to iterate</div>
+                      )}
                     </div>
-                    <div className="title-reasoning">{title.reasoning}</div>
-                    <div className="title-actions">
-                      <button
-                        className="title-action-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          copyToClipboard(title.text);
-                        }}
-                      >
-                        📋
-                      </button>
-                    </div>
+
+                    {/* Inline iterations */}
+                    {selectedTitleIndex === i && (
+                      <div className="iterations-container">
+                        {isIterating ? (
+                          <div className="iterations-loading">
+                            <div className="spinner" style={{ width: 24, height: 24 }} />
+                            <span>Generating variations...</span>
+                          </div>
+                        ) : iterations.length > 0 ? (
+                          iterations.map((iter, j) => (
+                            <div
+                              key={j}
+                              className="iteration-item"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                copyToClipboard(iter.text);
+                              }}
+                            >
+                              <div className="iteration-text">{iter.text}</div>
+                              <div className="iteration-angle">{iter.angle}</div>
+                            </div>
+                          ))
+                        ) : null}
+                      </div>
+                    )}
                   </div>
                 ))
               )}
