@@ -534,3 +534,184 @@ input[type="file"] {
 .file-status.error {
   color: var(--red);
 }
+
+/* =========================================================================
+   Clip Finder
+   ========================================================================= */
+
+.clips-section {
+  margin-top: 2rem;
+}
+
+.clips-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 1000px) {
+  .clips-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.clip-card {
+  background: var(--bg-dark);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem;
+  transition: all 0.2s;
+  cursor: pointer;
+  position: relative;
+}
+
+.clip-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.clip-card.expanded {
+  border-color: var(--purple);
+  background: rgba(168, 85, 247, 0.05);
+}
+
+.clip-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.clip-number {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.clip-timestamp {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.7rem;
+  padding: 0.2rem 0.5rem;
+  background: rgba(0, 200, 255, 0.15);
+  color: var(--accent);
+  border-radius: 4px;
+  letter-spacing: 0.02em;
+}
+
+.clip-no-timestamp {
+  font-size: 0.7rem;
+  padding: 0.2rem 0.5rem;
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--warning);
+  border-radius: 4px;
+  letter-spacing: 0.02em;
+}
+
+.clip-platform {
+  font-size: 0.65rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.clip-platform.youtube {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--red);
+}
+
+.clip-platform.tiktok {
+  background: rgba(168, 85, 247, 0.15);
+  color: var(--purple);
+}
+
+.clip-platform.instagram {
+  background: rgba(236, 72, 153, 0.15);
+  color: #f472b6;
+}
+
+.clip-platform.x-twitter {
+  background: rgba(0, 200, 255, 0.15);
+  color: var(--accent);
+}
+
+.clip-platform.linkedin {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--success);
+}
+
+.clip-speaker {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--purple);
+  margin-bottom: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.clip-hook {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  line-height: 1.4;
+}
+
+.clip-why {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-bottom: 0.5rem;
+}
+
+.clip-transcript-preview {
+  margin-top: 0.75rem;
+  padding: 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  max-height: 200px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+}
+
+.clip-actions {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  display: flex;
+  gap: 0.5rem;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.clip-card:hover .clip-actions {
+  opacity: 1;
+}
+
+.clip-expand-hint {
+  position: absolute;
+  bottom: 0.75rem;
+  right: 1rem;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.clip-card:hover .clip-expand-hint {
+  opacity: 1;
+}
+
+.clip-card.expanded .clip-expand-hint {
+  display: none;
+}

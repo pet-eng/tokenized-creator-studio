@@ -228,6 +228,71 @@ Generate titles now:`;
 }
 
 // ---------------------------------------------------------------------------
+// Clip Finder prompt — identifies social-media-ready segments
+// ---------------------------------------------------------------------------
+
+export function buildClipFinderPrompt(
+  transcript: string,
+  hasTimestamps: boolean,
+  guest: string,
+  episodeType: string,
+): string {
+  const timestampInstructions = hasTimestamps
+    ? `The transcript includes timestamps. These may be SRT/VTT format (e.g. "00:12:34,567 --> 00:12:38,901") or speaker-label format (e.g. "Speaker Name  12:34"). For each clip, return the start_time and end_time in "HH:MM:SS" format based on the timestamps in the transcript. Be precise — use the actual cue times from the transcript. For speaker-label timestamps like "Name  5:32", convert to "00:05:32" format.`
+    : `The transcript does NOT include timestamps. Set start_time and end_time to null. Instead, include a verbatim quote from the transcript in transcript_text so the producer can search for it.`;
+
+  const guestContext = guest
+    ? `\nGUEST: ${guest} — clips featuring the guest's insights, stories, or bold claims are especially valuable.`
+    : '';
+
+  return `You are a podcast clip finder for "Tokenized" — a podcast about stablecoins, tokenization, and the future of payments hosted by Simon Taylor.
+
+## YOUR TASK
+Analyze the transcript below and identify 5-8 segments (each 30-120 seconds long) that would make compelling social media clips. These clips should be self-contained moments that work as standalone short-form content.
+
+## TIMESTAMP MODE
+${timestampInstructions}
+
+## WHAT MAKES A GREAT CLIP
+- **Strong hook in the first 5 seconds** — the clip must grab attention immediately
+- **Self-contained** — a viewer with zero context should understand and find it interesting
+- **Emotional peaks** — moments of surprise, passion, laughter, or strong conviction
+- **Specific numbers or data** — "$300 trillion market" or "13,000 banks" are scroll-stoppers
+- **Contrarian or bold takes** — "Everyone is wrong about X" or "This will kill Y"
+- **Clear narrative arc** — even 60 seconds should have a beginning, middle, and payoff
+- **Quotable one-liners** — short punchy statements that work as captions
+
+## WHAT TO AVOID
+- Small talk, pleasantries, or intro/outro banter
+- Mid-thought starts or abrupt endings — each clip must feel complete
+- Overly technical jargon without context
+- Long meandering explanations without a payoff
+- Segments that require prior context from the episode to make sense
+- Inside jokes or references only regular listeners would get
+
+## EPISODE TYPE: ${episodeType}${guestContext}
+
+## OUTPUT FORMAT
+Return a JSON array of 5-8 clips, ordered by quality (best first):
+[
+  {
+    "start_time": "HH:MM:SS" or null,
+    "end_time": "HH:MM:SS" or null,
+    "speaker": "Name of the person speaking in this clip (e.g. 'Simon Taylor' or 'Jess Houlgrave'). If multiple speakers, name the primary one whose point drives the clip.",
+    "transcript_text": "The verbatim text of this segment from the transcript",
+    "hook": "A short, punchy description of why this moment grabs attention (this becomes the clip title)",
+    "why_clipworthy": "1 sentence explaining what makes this segment compelling for social media",
+    "platform_suggestion": "Best platform for this clip: YouTube Shorts, TikTok, Instagram Reels, X/Twitter, or LinkedIn"
+  }
+]
+
+## TRANSCRIPT
+${transcript}
+
+Find the best clips now:`;
+}
+
+// ---------------------------------------------------------------------------
 // Title iteration prompt — generates variations of a chosen direction
 // ---------------------------------------------------------------------------
 

@@ -13,6 +13,16 @@ interface TitleIteration {
   angle: string;
 }
 
+interface ClipSegment {
+  start_time: string | null;
+  end_time: string | null;
+  speaker: string;
+  transcript_text: string;
+  hook: string;
+  why_clipworthy: string;
+  platform_suggestion: string;
+}
+
 export default function Home() {
   // Title generation state
   const [transcript, setTranscript] = useState('');
@@ -25,6 +35,13 @@ export default function Home() {
   const [selectedTitleIndex, setSelectedTitleIndex] = useState<number | null>(null);
   const [iterations, setIterations] = useState<TitleIteration[]>([]);
   const [isIterating, setIsIterating] = useState(false);
+
+  // Clip finder state
+  const [rawTranscript, setRawTranscript] = useState('');
+  const [transcriptHasTimestamps, setTranscriptHasTimestamps] = useState(false);
+  const [clips, setClips] = useState<ClipSegment[]>([]);
+  const [isFindingClips, setIsFindingClips] = useState(false);
+  const [expandedClipIndex, setExpandedClipIndex] = useState<number | null>(null);
 
   // Toast state
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -72,6 +89,12 @@ export default function Home() {
   };
 
   const handleTranscriptChange = (text: string) => {
+    // Detect timestamps: SRT/VTT format OR speaker labels like "Name  0:32"
+    const hasSrtTimestamps = /\d{2}:\d{2}:\d{2}[.,]\d{3}\s*-->\s*\d{2}:\d{2}:\d{2}[.,]\d{3}/.test(text);
+    const hasSpeakerTimestamps = /^[A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)+\s+\d+:\d+/m.test(text);
+    setRawTranscript(text);
+    setTranscriptHasTimestamps(hasSrtTimestamps || hasSpeakerTimestamps);
+
     setTranscript(text);
     // Only auto-fill guest if the field is empty
     if (!guest.trim()) {
@@ -160,6 +183,54 @@ export default function Home() {
     }
   };
 
+  const handleFindClips = async () => {
+    if (!transcript.trim()) {
+      showToast('Please enter a transcript or summary', 'error');
+      return;
+    }
+
+    setIsFindingClips(true);
+    setClips([]);
+    setExpandedClipIndex(null);
+
+    try {
+      const response = await fetch('/api/find-clips', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transcript: rawTranscript || transcript,
+          hasTimestamps: transcriptHasTimestamps,
+          guest,
+          episodeType,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to find clips');
+      }
+
+      setClips(data.clips);
+      showToast(`Found ${data.clips.length} clips!`);
+    } catch (error) {
+      console.error('Error:', error);
+      showToast(error instanceof Error ? error.message : 'Failed to find clips', 'error');
+    } finally {
+      setIsFindingClips(false);
+    }
+  };
+
+  const getPlatformClass = (platform: string): string => {
+    const p = platform.toLowerCase();
+    if (p.includes('youtube')) return 'youtube';
+    if (p.includes('tiktok')) return 'tiktok';
+    if (p.includes('instagram')) return 'instagram';
+    if (p.includes('x') || p.includes('twitter')) return 'x-twitter';
+    if (p.includes('linkedin')) return 'linkedin';
+    return 'x-twitter';
+  };
+
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     showToast('Copied to clipboard!');
@@ -173,8 +244,18 @@ export default function Home() {
     reader.onload = (event) => {
       let text = event.target?.result as string;
 
-      // Strip SRT/VTT timestamps
-      if (file.name.endsWith('.srt') || file.name.endsWith('.vtt')) {
+      // Preserve raw text with timestamps for clip finder
+      const isSrtVtt = file.name.endsWith('.srt') || file.name.endsWith('.vtt');
+      if (isSrtVtt) {
+        setRawTranscript(text);
+        setTranscriptHasTimestamps(true);
+      } else {
+        setRawTranscript(text);
+        setTranscriptHasTimestamps(false);
+      }
+
+      // Strip SRT/VTT timestamps for display/title generation
+      if (isSrtVtt) {
         text = text
           .replace(/^\d+\s*$/gm, '')
           .replace(/\d{2}:\d{2}:\d{2}[.,]\d{3}\s*-->\s*\d{2}:\d{2}:\d{2}[.,]\d{3}/g, '')
@@ -276,12 +357,32 @@ export default function Home() {
                 </button>
                 <button
                   className="btn btn-secondary"
+                  onClick={handleFindClips}
+                  disabled={isFindingClips}
+                >
+                  {isFindingClips ? (
+                    <>
+                      <span className="spinner" style={{ width: 16, height: 16 }} />
+                      Finding...
+                    </>
+                  ) : (
+                    <>
+                      <span>✂️</span> Find Clips
+                    </>
+                  )}
+                </button>
+                <button
+                  className="btn btn-secondary"
                   onClick={() => {
                     setTranscript('');
                     setGuest('');
                     setTitles([]);
                     setSelectedTitleIndex(null);
                     setIterations([]);
+                    setRawTranscript('');
+                    setTranscriptHasTimestamps(false);
+                    setClips([]);
+                    setExpandedClipIndex(null);
                   }}
                 >
                   Clear
@@ -373,6 +474,91 @@ export default function Home() {
               )}
             </div>
           </div>
+      </div>
+
+      {/* Clip Finder Results */}
+      <div className="clips-section">
+        <div className="panel">
+          <div className="panel-header">
+            <div className="panel-title">Clip Finder</div>
+            {clips.length > 0 && (
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                {clips.length} clips
+              </span>
+            )}
+          </div>
+          <div className="panel-body">
+            {isFindingClips ? (
+              <div className="loading">
+                <div className="spinner" />
+                <div className="loading-text">Claude is analyzing your transcript for clips...</div>
+              </div>
+            ) : clips.length === 0 ? (
+              <div className="results-empty">
+                <div className="results-empty-icon">✂️</div>
+                <p>Find compelling 30-120 second segments for social media clips</p>
+                <p style={{ fontSize: '0.75rem', marginTop: '0.5rem', color: 'var(--text-muted)' }}>
+                  Tip: Upload an SRT/VTT file for precise timestamps
+                </p>
+              </div>
+            ) : (
+              <div className="clips-grid">
+                {clips.map((clip, i) => (
+                  <div
+                    key={i}
+                    className={`clip-card ${expandedClipIndex === i ? 'expanded' : ''}`}
+                    onClick={() => setExpandedClipIndex(expandedClipIndex === i ? null : i)}
+                  >
+                    <div className="clip-header">
+                      <span className="clip-number">Clip {i + 1}</span>
+                      {clip.start_time && clip.end_time ? (
+                        <span className="clip-timestamp">{clip.start_time} → {clip.end_time}</span>
+                      ) : (
+                        <span className="clip-no-timestamp">Text match</span>
+                      )}
+                      <span className={`clip-platform ${getPlatformClass(clip.platform_suggestion)}`}>
+                        {clip.platform_suggestion}
+                      </span>
+                    </div>
+                    {clip.speaker && (
+                      <div className="clip-speaker">{clip.speaker}</div>
+                    )}
+                    <div className="clip-hook">{clip.hook}</div>
+                    <div className="clip-why">{clip.why_clipworthy}</div>
+                    <div className="clip-actions">
+                      <button
+                        className="title-action-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          copyToClipboard(clip.hook);
+                        }}
+                        title="Copy hook"
+                      >
+                        📋
+                      </button>
+                      <button
+                        className="title-action-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          copyToClipboard(clip.transcript_text);
+                        }}
+                        title="Copy transcript segment"
+                      >
+                        📄
+                      </button>
+                    </div>
+                    {expandedClipIndex !== i && (
+                      <div className="clip-expand-hint">Click to expand</div>
+                    )}
+                    {expandedClipIndex === i && (
+                      <div className="clip-transcript-preview">{clip.transcript_text}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Toast notification */}
