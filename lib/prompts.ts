@@ -248,7 +248,7 @@ export function buildClipFinderPrompt(
   return `You are a podcast clip finder for "Tokenized" — a podcast about stablecoins, tokenization, and the future of payments hosted by Simon Taylor.
 
 ## YOUR TASK
-Analyze the transcript below and identify 5-8 segments (each 30-120 seconds long) that would make compelling social media clips. These clips should be self-contained moments that work as standalone short-form content.
+Analyze the transcript below and identify 12-15 segments (each 30-120 seconds long) that would make compelling social media clips. These clips should be self-contained moments that work as standalone short-form content.
 
 ## TIMESTAMP MODE
 ${timestampInstructions}
@@ -273,7 +273,7 @@ ${timestampInstructions}
 ## EPISODE TYPE: ${episodeType}${guestContext}
 
 ## OUTPUT FORMAT
-Return a JSON array of 5-8 clips, ordered by quality (best first):
+Return a JSON array of 12-15 clips, ordered by quality (best first):
 [
   {
     "start_time": "HH:MM:SS" or null,
